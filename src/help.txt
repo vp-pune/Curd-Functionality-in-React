@@ -1,0 +1,285 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
+import ModalForm from '../components/ModalForm';
+
+function Home() {
+    const [member, setMember] = useState({ name: '', email: '', age: '', parentId: '' });
+    const [memberData, setMemberData] = useState([]);
+    const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(5); // Default items per page
+
+    useEffect(() => {
+        const fetchMembersData = async () => {
+            try {
+                const response = await fetch(`https://crudcrud.com/api/eb7300dbbcd0411aa93cb905427c4bb8/members`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+                setMemberData(data);
+            } catch (error) {
+                console.error('Error fetching members:', error);
+            }
+        }
+
+        fetchMembersData()
+    }, [])
+
+    const handleNewMember = (e) => {
+        const { name, value } = e.target;
+        setMember((prevMember) => ({
+            ...prevMember,
+            [name]: value,
+        }));
+    };
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const data = {
+            name: member.name,
+            email: member.email,
+            age: member.age,
+            parentId: member.parentId
+        }
+        try {
+            const response = await fetch(`https://crudcrud.com/api/eb7300dbbcd0411aa93cb905427c4bb8/members`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+    
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+    
+            const newMember = await response.json();
+            setMemberData([...memberData, newMember]);
+    
+            // Reset member form
+            setMember({ name: '', email: '', age: '', parentId: '' });
+            Swal.fire(
+                'Success!',
+                'New member has been added.',
+                'success'
+            );
+        } catch (error) {
+            console.error('Error:', error);
+            Swal.fire(
+                'Error!',
+                'There was a problem adding the member.',
+                'error'
+            );
+        }
+    };
+    const handleDeleteMemeber = (id) => {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "If you delete this Member Then this action can not be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, delete it!",
+            confirmButtonColor: "light-blue",
+            cancelButtonText: "Cancel",
+            cancelButtonColor: "red"
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`https://crudcrud.com/api/eb7300dbbcd0411aa93cb905427c4bb8/members/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const newData = memberData.filter((member) => member._id !== id);
+                    setMemberData(newData);
+                    Swal.fire(
+                        "Deleted!",
+                        "The member has been deleted.",
+                        "success"
+                    );
+                } catch (error) {
+                    console.error('Error:', error);
+                    Swal.fire(
+                        'Error!',
+                        'There was a problem deleting the member.',
+                        'error'
+                    );
+                }
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                Swal.fire(
+                    "Cancelled",
+                    "The member is safe :)",
+                    "error"
+                );
+            }
+        });
+    };
+
+
+    const handleSearch = (e) => {
+        setSearch(e.target.value);
+    };
+
+    const handleItemsPerPageChange = (e) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1); // Reset to the first page when changing items per page
+    };
+
+    const filteredMembers = memberData.filter((member) =>
+        member.name.toLowerCase().includes(search.toLowerCase()) ||
+        member.email.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Get current members
+    const indexOfLastMember = currentPage * itemsPerPage;
+    const indexOfFirstMember = indexOfLastMember - itemsPerPage;
+    const currentMembers = filteredMembers.slice(indexOfFirstMember, indexOfLastMember);
+
+    const handleMemberUpdate = ({ person }) => {
+        console.log(person);
+    };
+
+    // Pagination
+    const pageNumbers = [];
+    for (let i = 1; i <= Math.ceil(filteredMembers.length / itemsPerPage); i++) {
+        pageNumbers.push(i);
+    }
+
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
+    const nextPage = () => {
+        if (currentPage < Math.ceil(filteredMembers.length / itemsPerPage)) {
+            setCurrentPage(currentPage + 1);
+        }
+    };
+    const prevPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
+
+    return (
+        <div className="container p-3 shadow">
+            <header>
+                <h1 className="p-2">All Members</h1>
+            </header>
+
+            <div className="d-flex justify-content-around p-3">
+                <div>
+                    <input
+                        type="search"
+                        placeholder="Search"
+                        value={search}
+                        onChange={handleSearch}
+                        className="form-control"
+                    />
+                </div>
+                <button type="button" className="btn btn-success rounded" data-bs-toggle="modal" data-bs-target="#exampleModal">
+                    Add New Member
+                </button>
+            </div>
+            <div className="modal fade" id="exampleModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div className="modal-dialog">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h5 className="modal-title" id="exampleModalLabel">Add New Member</h5>
+                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div className="modal-body">
+                            <form onSubmit={handleSubmit}>
+                                <div className="form-group">
+                                    <label htmlFor="memberName">Member Name</label>
+                                    <input onChange={handleNewMember} name="name" value={member.name} type="text" placeholder="Enter Member Name" className="form-control" id="memberName" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="memberEmail">Member Email</label>
+                                    <input onChange={handleNewMember} name="email" value={member.email} type="email" placeholder="Enter Member Email" className="form-control" id="memberEmail" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="memberAge">Member Age</label>
+                                    <input onChange={handleNewMember} name="age" value={member.age} type="number" placeholder="Enter Member Age" className="form-control" id="memberAge" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="MemberParentId">Member Parent Id</label>
+                                    <input onChange={handleNewMember} name="parentId" value={member.parentId} type="text" placeholder="Enter Parent Id" className="form-control" id="MemberParentId" />
+                                </div>
+                                <div className="modal-footer bg-light d-flex justify-content-center">
+                                    <button type="submit" className="btn btn-success" data-bs-dismiss="modal">Submit</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <table className="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th scope="col">Id</th>
+                        <th scope="col">Member Name</th>
+                        <th scope="col">Member Email</th>
+                        <th scope="col">Member Age</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {currentMembers.map((person, index) => (
+                        <tr key={person._id}>
+                            <th scope="row">{indexOfFirstMember + index + 1}</th>
+                            <td onClick={() => handleMemberUpdate(person)} style={{ cursor: 'pointer' }}>{person.name}</td>
+                            <td onClick={() => handleMemberUpdate(person)} style={{ cursor: 'pointer' }}>{person.email}</td>
+                            <td>{person.age}</td>
+                            <td>
+                                <span onClick={() => handleDeleteMemeber(person._id)} className="material-symbols-outlined text-danger" style={{ cursor: 'pointer' }}>
+                                    delete
+                                </span>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            <div className="d-flex justify-content-between">
+                <div className="rounded d-flex" >
+                    <div className='p-1 '> Show</div>
+                    <select className="custom-select py-1 px-4" value={itemsPerPage} onChange={handleItemsPerPageChange}>
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                    </select>
+                    <div className='p-1'> Entries </div>
+                </div>
+                <nav aria-label="Page navigation example">
+                    <ul className="pagination">
+                        <li className="page-item">
+                            <button className="page-link" onClick={() => paginate(1)} disabled={currentPage === 1}>First</button>
+                        </li>
+                        <li className="page-item">
+                            <button className="page-link" onClick={prevPage} disabled={currentPage === 1}>Previous</button>
+                        </li>
+                        {pageNumbers.map((number) => (
+                            <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
+                                <button onClick={() => paginate(number)} className="page-link">
+                                    {number}
+                                </button>
+                            </li>
+                        ))}
+                        <li className="page-item">
+                            <button className="page-link" onClick={nextPage} disabled={currentPage === pageNumbers.length}>Next</button>
+                        </li>
+                        <li className="page-item">
+                            <button className="page-link" onClick={() => paginate(pageNumbers.length)} disabled={currentPage === pageNumbers.length}>Last</button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    );
+}
+
+export default Home;
